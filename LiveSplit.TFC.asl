@@ -11,7 +11,7 @@ init
 {
     //Get the path for the logs
     //vars.stsLogPath =  System.IO.Directory.GetParent(modules.First().FileName).FullName + "\\tfc\\logs\\testing.log";
-    vars.stsLogPath = "F:\SteamLibrary\steamapps\common\Half-Life\tfc\logs\L0308016.log"
+    vars.stsLogPath = "F:\SteamLibrary\steamapps\common\Half-Life\tfc\logs\L0310001.log"
 	
     //Open the logs and set the position to the end of the file
     vars.reader = new StreamReader(new FileStream(vars.stsLogPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
