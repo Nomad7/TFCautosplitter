@@ -2,7 +2,7 @@
 Heavily inspited by the Slay The Spire autosplitter by OohBleh
  */
 
-state("Half-Life Launcher")
+state("hl")
 {
 
 }
