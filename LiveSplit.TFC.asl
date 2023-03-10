@@ -11,7 +11,7 @@ init
 {
     //Get the path for the logs
     //vars.stsLogPath =  System.IO.Directory.GetParent(modules.First().FileName).FullName + "\\tfc\\logs\\testing.log";
-    vars.stsLogPath = "F:\SteamLibrary\steamapps\common\Half-Life\tfc\logs\testing.log"
+    vars.stsLogPath = "F:\SteamLibrary\steamapps\common\Half-Life\tfc\logs\L0308016.log"
 	
     //Open the logs and set the position to the end of the file
     vars.reader = new StreamReader(new FileStream(vars.stsLogPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
@@ -38,7 +38,7 @@ update
         vars.lastPointerPosition = vars.reader.BaseStream.Position;
         
         //Changes the value of vars.command depending on the content of line and returns true if a command needs to be issued.
-        if(line.Contains("Generating seeds")){
+        if(line.Contains("entered the game")){
             vars.command = "START";
             return true;
         } else if (timer.CurrentPhase == TimerPhase.Running & System.Text.RegularExpressions.Regex.IsMatch(line, @"(Hard Unlock: )(GUARDIAN|GHOST|SLIME|CHAMP|AUTOMATON|COLLECTOR|CROW|DONUT|WIZARD)")){
