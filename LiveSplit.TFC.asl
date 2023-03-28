@@ -1,100 +1,103 @@
-/* TFC Autosplitter v0.1a 2023-03-10 by Nomad 
-Heavily inspited by the Slay The Spire autosplitter by OohBleh
+/* TFC Autosplitter v0.1a 2023-03-28 by Nomad 
+Heavily inspired by the Slay The Spire and other existing autosplitters
+Created with significant help and guidance from Ero
+Thanks to Ero and others in the Speedrun Tool Developement discord
  */
 
-state("hl")
-{
+state("hl") {
+    // TFC's log message buffer is located at hw.dll+6BB310
+    // LOGGING MUST BE ENABLED - use 'log on' in console
+    string255 LogLine : "hw.dll", 0x6BB310;
+}
 
+startup
+{
+    // Create TimerModel for resetting in `exit`.
+    vars.Model = new TimerModel { CurrentState = timer };
 }
 
 init
 {
-    //Get the path for the logs
-	vars.stsLogPath =  System.IO.Directory.GetParent(modules.First().FileName).FullName + "\\tfc\\logs\\testing.log";
-	
-    //Open the logs and set the position to the end of the file
-    vars.reader = new StreamReader(new FileStream(vars.stsLogPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
-    vars.reader.BaseStream.Seek(0, SeekOrigin.End);
-    vars.lastPointerPosition = vars.reader.BaseStream.Position;
-    //Set the command to "UPDATE"
-    vars.command = "UPDATE";
+    // Various trigger messages (see hampalyzer code) go here
+    vars.Starter = "Server cvars end";
+    vars.StartStrings = new [] {"Server cvars end", "Server cvar \"sv_maxspeed\"", "Started map" };
+
+    vars.Splitter = "dropoff";
+    vars.SplitStrings = new [] {"Team 1 dropoff", "Blue Cap", "Blue_Cap", "BlueCap", "Capture Point"};
+    
+    vars.Stopper = "disconnected";
+    vars.StopStrings = new [] {"disconnected", "Log file closed"};
 }
 
 update
 {
-
-    if (vars.reader.BaseStream.Length == vars.lastPointerPosition){ //If the logs haven't changed, skip the rest of the code (update, reset, split, start, etc.). We place it first to lessen the load on the computer
-        return false;
-    } else if (vars.reader.BaseStream.Length < vars.lastPointerPosition){ //If the logs have been reset, then place the pointer at the end and update vars.lastPointerPosition and skip the rest of the code.
-        vars.reader.BaseStream.Seek(0, SeekOrigin.End);
-        vars.lastPointerPosition = vars.reader.BaseStream.Position;
-        return false;
-    }
-
-    string line = "";
-    while((line = vars.reader.ReadLine()) != null){ //Read the log until its end
-        //Updates vars.lastPointerPosition to its new position.
-        vars.lastPointerPosition = vars.reader.BaseStream.Position;
-        
-        //Changes the value of vars.command depending on the content of line and returns true if a command needs to be issued.
-        if(line.Contains("testing")){
-            vars.command = "START";
-            return true;
-        } else if (timer.CurrentPhase == TimerPhase.Running & System.Text.RegularExpressions.Regex.IsMatch(line, @"(Hard Unlock: )(GUARDIAN|GHOST|SLIME|CHAMP|AUTOMATON|COLLECTOR|CROW|DONUT|WIZARD)")){
-            vars.command = "SPLIT";
-            return true;
-        } else if (System.Text.RegularExpressions.Regex.IsMatch(line, @"stop")){
-            vars.command = "RESET";
-            return true;
-            }
-        }
-
-}
-
-reset
-{
-    if (vars.command == "RESET"){
-        vars.command = "UPDATE";
-        return true;
-    }
-}
-
-split
-{
-    if (vars.command == "SPLIT"){
-        vars.command = "UPDATE";
-        return true;
-    }
+    // Debugging
+    // if (current.LogLine != old.LogLine)
+    // {
+    //     print("DEBUG: Last event line was: " + old.LogLine);
+    //     print("DEBUG: Current event line is: " + current.LogLine);
+    // }
+    
+    // Don't run if current event log is null.
+    return (current.LogLine != null);       
 }
 
 start
 {
-    if (vars.command == "START"){
-        vars.command = "UPDATE";
-        return true;
-    }
+    // Debugging
+    // print("DEBUG: attempting to START, current event line is: " + current.LogLine);
+
+    // Basic check for trigger string
+    // return current.LogLine.Contains("Server cvars end");
+
+    // Check array of strings which all count as 'start'
+    // string[] startStrings = vars.StartStrings; // lambda can't handle the dynamic type returned by vars.StartStrings
+    // return startStrings.Any(s => current.LogLine.Contains(s));
+
+    // Faster method according to https://cc.davelozinski.com/c-sharp/fastest-way-to-check-if-a-string-occurs-within-a-string (2013)
+    return (current.LogLine.Length - current.LogLine.Replace(vars.Starter, String.Empty).Length) / vars.Starter.Length > 0 ? true : false;
+}
+
+split
+{
+    // Debugging
+    // print("DEBUG: attempting to SPLIT, current event line is: " + current.LogLine);
+    
+    // Basic check for trigger string
+    return (current.LogLine.Contains("dropoff") || current.LogLine.Contains("Blue Cap") || current.LogLine.Contains("Blue_Cap") || 
+            current.LogLine.Contains("BlueCap") || current.LogLine.Contains("Capture Point") || current.LogLine.Contains("Cap Point"));
+
+    // Check array of strings which all count as 'split'
+    // string[] splitStrings = vars.SplitStrings; // lambda can't handle the dynamic type returned by vars.SsplitStrings
+    // return ssplitStrings.Any(s => current.LogLine.Contains(s));
+
+    // Faster method according to https://cc.davelozinski.com/c-sharp/fastest-way-to-check-if-a-string-occurs-within-a-string (2013)
+    // return (current.LogLine.Length - current.LogLine.Replace(vars.Splitter, String.Empty).Length) / vars.Splitter.Length > 0 ? true : false;
+}
+
+reset
+{
+    // Debugging
+    // print("DEBUG: attempting to RESET, current event line is: " + current.LogLine);
+
+    // Basic check for trigger string
+    // return current.LogLine.Contains("stop");
+    
+    // Check array of strings which all count as 'stop'
+    // string[] stopStrings = vars.StopStrings; // lambda can't handle the dynamic type returned by vars.StopStrings
+    // return stopStrings.Any(s => current.LogLine.Contains(s)); 
+    
+    // Faster method according to https://cc.davelozinski.com/c-sharp/fastest-way-to-check-if-a-string-occurs-within-a-string (2013)
+    return (current.LogLine.Length - current.LogLine.Replace(vars.Stopper, String.Empty).Length) / vars.Stopper.Length > 0 ? true : false;
 }
 
 exit
-{   
-    // Resets the timer if the game closes (either from a bug or manually)
-    new TimerModel() { CurrentState = timer }.Reset();
-    vars.reader.Close();
-    vars.lastPointerPosition = 0;
+{
+    // Reset timer if game closed.
+    vars.Model.Reset();
 }
 
 shutdown
 {
-    // Closing the reader (Only useful when you close LiveSplit before closing SlayTheSpire)
-    vars.reader.Close();
-}
 
-isLoading
-{
-    // Blank isLoading to avoid any warnings
-}
-
-gameTime
-{
-    // Blank gameTime to avoid any warnings
 }
