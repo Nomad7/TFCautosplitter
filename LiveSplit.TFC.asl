@@ -1,4 +1,4 @@
-/* TFC Autosplitter v0.1a 2023-03-28 by Nomad#6589
+/* TFC Autosplitter v0.1 2023-04-01 by Nomad#6589
 Heavily inspired by the Slay The Spire and other existing autosplitters
 Created with significant help and guidance from Ero
 Thanks to Ero and others in the Speedrun Tool Developement discord
@@ -10,18 +10,16 @@ but to get a map properly supported please contact me on Discord.
 
 
 // TODO:
-// - support counting capture events for maps like cz2, flagrun, avanti, warpath
-// - - maybe use counts for maps with start-of-map triggers?
 // - figure out correct map triggers for custom maps
-// - don't split if timer just started (for maps like hunted)
 // - make settings for customized splitters actually work
 // - - categorize/sort splitter settings (ADL, CP, CTF?)
-// - -add more generic split triggers (cap point 4, cap5, "captured", etc)
+// - - add more generic split triggers (cap point 4, cap5, "captured", etc)
 // - remove case sensitivity (for triggers and maybe elsewhere)?
 // - figure out how gametime works and add support for that
 // - - pause gametime on log file close, resume on map start? -cease_fire?
 // - figure out how substages work (sub-splits on flag pickup?)
 // - check if setting refreshRate higher than 60 catches more log events?
+// - compare bxt timing for starting on "Started map" vs "connected, address"
 
 
 state("hl") {
@@ -105,9 +103,10 @@ startup
 
 init
 {
-    // Current map and objective
+    // Current map and objective trigger
     vars.CurrentMap = "";
     vars.CurrentObjective = "";
+    
     // Number of objectives needed
     vars.ObjectivesTotal = 1;
     vars.ObjectivesCompleted = 0;
@@ -115,21 +114,22 @@ init
     // Cache for last event
     vars.LastEvent = "";
 
-    // Various trigger messages (see hampalyzer code) go here
+    // Trigger string for 'start'
+    // "Started map" - last event before map loads, may inflate times on slow machines?
+    // "connected, address" - first event after map loads TODO: compare to bxt
     vars.Starter = "Started map";
-    vars.StartStrings = new [] {"Started map", "connected, address", "joined team \"SPECTATOR\"" };
+    // vars.StartStrings = new [] {"Started map", "connected, address", "joined team \"SPECTATOR\"" };
 
+    // Trigger string for 'split'
+    // This is set per-map in 'update'
     vars.Splitter = "dropoff";
-    vars.SplitStrings = new [] {"Team 1 dropoff", "Blue Cap", "Blue_Cap", "BlueCap", "Capture Point"};
+    // vars.SplitStrings = new [] {"Team 1 dropoff", "Blue Cap", "Blue_Cap", "BlueCap", "Capture Point"};
     
+    // Trigger string for 'reset'
+    // Disabled by default (see settings)
     vars.Stopper = "disconnected";
-    vars.StopStrings = new [] {"disconnected", "Log file closed"};
+    // vars.StopStrings = new [] {"disconnected", "Log file closed"};
 
-    // Minimum duration between splits
-    vars.SplitCushion = 5.0;
-
-    // Stopwatch workaround
-    // vars.Stopwatch = new Stopwatch();
 }
 
 update
@@ -145,12 +145,17 @@ update
     if (current.LogLine != old.LogLine)
     {
         // Do things based on the current event
+        
         // Identify map
         if (current.LogLine.Contains("Started map"))
         {
             // Reset available objectives
             vars.ObjectivesTotal = 1;
+
+            // Capture the map name
             vars.CurrentMap = current.LogLine.Split('"')[1];
+            
+            // Map-specific configurations
             switch ((string)vars.CurrentMap)
             {
                 case "2fort":
@@ -162,33 +167,30 @@ update
                     break;
                 case "avanti":
                     vars.CurrentObjective = "Capture Point 3";
-                    vars.ObjectivesTotal = 2;
+                    vars.ObjectivesTotal = 2; // Caps 3 and 4 are both called '3'
                     break;
                 case "dustbowl":
                     vars.CurrentObjective = "Capture Point 3";
                     break;
                 case "cz2":
-                    // Red team's goals would be '#cz_rcap'
-                    vars.CurrentObjective = "#cz_bcap";
-                    vars.ObjectivesTotal = 5;
+                    vars.CurrentObjective = "#cz_bcap"; // Red team's goals would be '#cz_rcap'
+                    vars.ObjectivesTotal = 5; // 5 command points
                     break;
                 case "epicenter":
                     vars.CurrentObjective = "spawn resupply";
-                    vars.ObjectivesTotal = 2;
+                    vars.ObjectivesTotal = 2; // Triggers on spawn
                     break;
                 case "flagrun":
                     vars.CurrentObjective = " endgame check ";
-                    vars.ObjectivesTotal = 3;
+                    vars.ObjectivesTotal = 3; // 3 flags
                     break;
                 case "hunted":
                     vars.CurrentObjective = "The Hunted's Notepad";
-                    // Trigger occurs on map load
-                    vars.ObjectivesTotal = 2;
+                    vars.ObjectivesTotal = 2; // Triggers on spawn
                     break;
                 case "push":
                     vars.CurrentObjective = "ammo_giver";
-                    // Trigger occurs on map load
-                    vars.ObjectivesTotal = 2;
+                    vars.ObjectivesTotal = 2; // Triggers on spawn
                     break;
                 case "ravelin":
                     vars.CurrentObjective = " captured the ";
@@ -198,23 +200,21 @@ update
                     break;
                 case "warpath":
                     vars.CurrentObjective = "#inital_spawn_equip"; // typo is theirs, not mine
-                    vars.ObjectivesTotal = 2;
+                    vars.ObjectivesTotal = 2; // Triggers on spawn
                     break;              
                 default:
                     print("DEBUG: Unsupported map! Tell Nomad to add " + vars.CurrentMap);
                     break;
             }
-            // Debugging
-            // print("DEBUG: attempting to update map objective for: " + vars.CurrentMap + "\n" + 
-            // "current vars.Splitter value is: " + vars.Splitter + "\n" +
-            // "current vars.CurrentObjective value is: " + vars.CurrentObjective);
-            
+
             // Use the identified objective as the splitter string
             vars.Splitter = vars.CurrentObjective;
+            
             // Reset completed objectives
             vars.ObjectivesCompleted = 0;
         }   
     }
+    
     // Don't run if current event log is null.
     return (current.LogLine != null);
 }
@@ -238,71 +238,12 @@ split
     // Debugging
     // print("DEBUG: attempting to SPLIT, current event line is: " + current.LogLine);
 
-    // Never split in the first few seconds
-	// if (timer.CurrentTime.RealTime.Value.TotalSeconds < vars.SplitCushion)
-	// {
-	// 	return;
-	// }
-
-    // Attempting to evaluate previous split time to see if we're ready to split again yet...
-
-    // Time lastSplitTime = timer.Run[timer.CurrentSplitIndex-1].SplitTime;
-    // Time lastLastSplitTime = timer.Run[timer.CurrentSplitIndex-2].SplitTime;
-    // double lastSplitTime = timer.Run[timer.CurrentSplitIndex-1].SplitTime.RealTime.Value.TotalSeconds;
-    // double lastLastSplitTime = timer.Run[timer.CurrentSplitIndex-2].SplitTime.RealTime.Value.TotalSeconds;
-
-    // BROKEN - gets stuck once the criteria is met
-    // if ((timer.Run[timer.CurrentSplitIndex-1].SplitTime.RealTime.Value.TotalSeconds - timer.Run[timer.CurrentSplitIndex-2].SplitTime.RealTime.Value.TotalSeconds) < vars.SplitCushion)
-    // {
-    //     print("DEBUG: splitCushionTime: " + vars.SplitCushion + 
-    //     "\nlastLastSplitTime: " + timer.Run[timer.CurrentSplitIndex-2].SplitTime.RealTime.Value.TotalSeconds + 
-    //     "\nlastSplitTime: " + timer.Run[timer.CurrentSplitIndex-1].SplitTime.RealTime.Value.TotalSeconds +
-    //     "\nDifference: " + (timer.Run[timer.CurrentSplitIndex-1].SplitTime.RealTime.Value.TotalSeconds - timer.Run[timer.CurrentSplitIndex-2].SplitTime.RealTime.Value.TotalSeconds));
-    //     return;
-    // }		
-    // if ((timer.Run[timer.CurrentSplitIndex].SplitTime.RealTime.Value.TotalSeconds - timer.Run[timer.CurrentSplitIndex-1].SplitTime.RealTime.Value.TotalSeconds) < vars.SplitCushion)
-    // {
-    //     // print("DEBUG: splitCushionTime: " + vars.SplitCushion + 
-    //     // "\nlastLastSplitTime: " + timer.Run[timer.CurrentSplitIndex-1].SplitTime.RealTime.Value.TotalSeconds + 
-    //     // "\nlastSplitTime: " + timer.Run[timer.CurrentSplitIndex].SplitTime.RealTime.Value.TotalSeconds +
-    //     // "\nDifference: " + (timer.Run[timer.CurrentSplitIndex].SplitTime.RealTime.Value.TotalSeconds - timer.Run[timer.CurrentSplitIndex-1].SplitTime.RealTime.Value.TotalSeconds));
-    //     return;
-    // }	
-
-    // Stopwatch workaround
-    // if ((timer.CurrentSplitIndex > 0) && (vars.Stopwatch.ElapsedMilliseconds < 7000))
-	// {
-    //     return;
-	// }
-
     // Basic check for single trigger string
+    // Includes objective tracker (this solves several other map-specicic problems)
     if ((current.LogLine != old.LogLine) && current.LogLine.Contains(vars.Splitter))
     {
         return (++vars.ObjectivesCompleted >= vars.ObjectivesTotal);
     }
-    
-    // Basic check for various trigger strings
-    // if (vars.LastEvent != current.LogLine && (current.LogLine.Contains("dropoff") || current.LogLine.Contains("Blue Cap") || current.LogLine.Contains("Blue_Cap") || 
-    //         current.LogLine.Contains("BlueCap") || current.LogLine.Contains("Capture Point") || current.LogLine.Contains("Cap Point")))
-    //         {
-    //             vars.LastEvent = current.LogLine;
-    //             print("DEBUG: LastEvent (" + vars.LastEvent + "doesn't match LogLine (" + current.LogLine + ")");
-    //             return true;
-    //         }
-    
-
-    // Check array of strings which all count as 'split'
-    // string[] splitStrings = vars.SplitStrings; // lambda can't handle the dynamic type returned by vars.SsplitStrings
-    // return ssplitStrings.Any(s => current.LogLine.Contains(s));
-
-    // Faster method according to https://cc.davelozinski.com/c-sharp/fastest-way-to-check-if-a-string-occurs-within-a-string (2013)
-    // return (current.LogLine.Length - current.LogLine.Replace(vars.Splitter, String.Empty).Length) / vars.Splitter.Length > 0 ? true : false;
-}
-
-onSplit
-{
-    // Stopwatch workaround
-    // vars.Stopwatch.Restart();
 }
 
 reset
