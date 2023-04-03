@@ -34,7 +34,7 @@
   
 ## Notes
 
-My goal was to create a non-invasive (non-hook) alternative to BXT.
+My goal was to create a non-invasive (non-hook) alternative to [BXT](https://github.com/YaLTeR/BunnymodXT).
 BXT is great at what it does, but some players in the TFC community
 may be uncomfortable using it due to the VAC warning.
 Based on my understanding of how VAC works this autosplitter should
