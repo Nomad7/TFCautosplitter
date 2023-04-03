@@ -1,275 +1,166 @@
-/* TFC Autosplitter v0.1 2023-04-01 by Nomad#6589
-Heavily inspired by the Slay The Spire and other existing autosplitters
-Created with significant help and guidance from Ero
-Thanks to Ero and others in the Speedrun Tool Developement discord
-
-Community / custom maps are not supported by default, but I can add them!
-I've included some known split triggers in the Settings,
-but to get a map properly supported please contact me on Discord.
+/* TFC Autosplitter v1.0 2023-04-03 by Nomad#6589
+Created with significant help and guidance from other people.
+Refactor based almost entirely on Ero's input - thank you Ero!
+Thanks also to everyone in the Speedrun Tool Developement discord.
  */
 
+/* Notes
+My goal was to create a non-invasive (non-hook) alternative to BXT.
+BXT is great at what it does, but some players in the TFC community
+may be uncomfortable using it due to the VAC warning.
+Based on my understanding of how VAC works this autosplitter should
+be safe to use - it watches one of the game's memory offsets (which
+VAC can see), but it's just the offset for the log output.
+If you have any questions or concerns please feel free to contact me.
 
-// TODO:
-// - figure out correct map triggers for custom maps
-// - make settings for customized splitters actually work
-// - - categorize/sort splitter settings (ADL, CP, CTF?)
-// - - add more generic split triggers (cap point 4, cap5, "captured", etc)
-// - remove case sensitivity (for triggers and maybe elsewhere)?
-// - figure out how gametime works and add support for that
-// - - pause gametime on log file close, resume on map start? -cease_fire?
-// - figure out how substages work (sub-splits on flag pickup?)
-// - check if setting refreshRate higher than 60 catches more log events?
-// - compare bxt timing for starting on "Started map" vs "connected, address"
+In terms of timing accuracy, the specific triggers used by BXT are
+slightly different than what are used in this autosplitter, which
+means that the final time isn't always going to be identical.
+For 100% accurate timings, down to the nanosecond, I recommend using
+BXT with full integration (autorecording, timing info in demos, etc).
+For the average runner, I think this should be pretty darn close. :)
 
+Known issues:
+Not all maps are currently supported, but we can add more!.
+Contact me on Discord to add support for a map, it's quick and easy.
 
-state("hl") {
-    // TFC's log message buffer is located at hw.dll+6BB310
-    // LOGGING MUST BE ENABLED - use 'log on' in console
+Most maps expect a certain number of objective completion events.
+Some maps activate completion events every time the player spawns 
+(for various reasons). Respawning without restarting the map may
+cause unexpected issues in some cases (epicenter, hunted, push, warpath).
+ */
+
+state("hl")
+{
+    // TFC's log message buffer is located at hw.dll+6BB310.
+    // LOGGING MUST BE ENABLED: use 'log on' in console.
     string255 LogLine : "hw.dll", 0x6BB310;
-    // In Software graphics mode, address changes to sw.dll+38C1C8
+    
+    // In Software graphics mode, address changes to sw.dll+38C1C8.
     // string255 SWLogLine : "sw.dll", 0x38C1C8;
 }
 
 startup
 {
-    // Create TimerModel for resetting in `exit`.
+    // Need a timer to keep track of the time
     vars.Model = new TimerModel { CurrentState = timer };
 
-    // Settings
-    // All triggers could potentially be settings?
-    settings.Add("splits", false, "Split overrides for custom maps...");
-    settings.SetToolTip("splits",
-		"WARNING: Enabling these will override the automatic defaults!\n" +
-        "Split triggers should be detected automatically for supported maps without changing these settings.\n" +
-        "For unsupported maps, select the appropriate trigger type if possible.\n" +
-        "If your map's trigger is not listed here, contact Nomad#6589 to get it added."
-    );
-    settings.Add("splits_dropoff", false, " dropoff", "splits");
-    settings.SetToolTip("splits_dropoff",
-		"Used on 2fort, badlands, casbah, crossover2, epicenter, well...\n" + 
-        "2fort style 'Team 1 dropoff' or 'team one dropoff' triggers"
-	);
-    settings.Add("splits_CP3", false, "Capture Point 3", "splits");
-    settings.SetToolTip("splits_CP3",
-		"Used on avanti, dustbowl...\n" +
-        "CP/ADL style maps where 'Capture Point 3' is the victory trigger"
-	);
-    settings.Add("splits_cz2", false, "#cap5", "splits");
-    settings.SetToolTip("splits_cz2",
-		"cz2 '#cz_bcap5' trigger\n" +
-        "NOTE: this MUST be the last point captured\n" +
-        "You may use this setting to finish cz2 on cap5 instead of cap3"
-	);
-    settings.Add("splits_flagrun", false, "endgame check 2", "splits");
-    settings.SetToolTip("splits_flagrun",
-		"flagrun style 'endgame check 2' trigger\n" +
-        "NOTE: this MUST be the last point captured\n" +
-        "You may use this setting to finish flagrun with flag2 instead of flag3"
-	);
-    settings.Add("splits_hunted", false, "The Hunted's Notepad", "splits");
-    settings.SetToolTip("splits_hunted",
-		"hunted style 'The Hunted's Notepad' trigger"
-	);
-    settings.Add("splits_push", false, "ammo_giver", "splits");
-    settings.SetToolTip("splits_push",
-		"push style 'ammo_giver' trigger"
-	);
-    settings.Add("splits_ravelin", false, " captured the ", "splits");
-    settings.SetToolTip("splits_ravelin",
-		"Used on ravelin, but generic enough for some other maps...\n" +
-        "ravelin style '%s captured the RED base!' triggers"
+    // Table to track map names, triggers, and objective count.
+    // (the count address various map-specific quirks)
+    vars.Splits = new Dictionary<string, Tuple<string, int>>
+    {
+        { "2fort",              Tuple.Create(" dropoff",             1) }, // (Valve)
+        { "badlands",           Tuple.Create(" dropoff",             1) }, // (Valve)
+        { "casbah",             Tuple.Create(" dropoff",             1) }, // (Valve)
+        { "crossover2",         Tuple.Create(" dropoff",             1) }, // (Valve)
+        { "well",               Tuple.Create(" dropoff",             1) }, // (Valve)
+        { "alchimy_l2",         Tuple.Create(" dropoff",             1) },
+        { "fry_baked_lg",       Tuple.Create(" dropoff",             1) },
+        { "mortality_l",        Tuple.Create(" dropoff",             1) },
+        { "openfire_lowgrens",  Tuple.Create(" dropoff",             1) },
+        { "phantom",            Tuple.Create(" dropoff",             1) },
+        { "pitfall",            Tuple.Create(" dropoff",             1) },
+        { "schtop",             Tuple.Create(" dropoff",             1) },
+        { "shutdown2_lg",       Tuple.Create(" dropoff",             1) },
+        { "siege",              Tuple.Create(" dropoff",             1) },
+        { "ss_nyx_ectfc",       Tuple.Create(" dropoff",             1) },
+        { "stowaway2_lg",       Tuple.Create(" dropoff",             1) },
+        { "avanti",             Tuple.Create("Capture Point 3",      2) }, // (Valve)
+        { "dustbowl",           Tuple.Create("Capture Point 3",      1) }, // (Valve)
+        { "cz2",                Tuple.Create("#cz_bcap",             5) }, // (Valve)
+        { "epicenter",          Tuple.Create("spawn resupply",       2) }, // (Valve)
+        { "flagrun",            Tuple.Create(" endgame check ",      3) }, // (Valve)
+        { "hunted",             Tuple.Create("The Hunted's Notepad", 2) }, // (Valve)
+        { "push",               Tuple.Create("ammo_giver",           2) }, // (Valve)
+        { "ravelin",            Tuple.Create(" captured the ",       1) }, // (Valve)
+        { "rock2",              Tuple.Create("_scores",              1) }, // (Valve)
+        { "warpath",            Tuple.Create("#inital_spawn_equip",  2) }, // (Valve)
+        { "2kfort5",            Tuple.Create("Capture Point",        1) },
+        { "destroy_l",          Tuple.Create("Capture Point",        1) },
+        { "monkey_lg",          Tuple.Create("Cap Point",            1) },
+        { "raiden7",            Tuple.Create("Capture Point",        1) },
+        { "siden",              Tuple.Create("Capture Point",        1) },
+        { "stormz2",            Tuple.Create("Capture Point",        1) },
+        { "(unknown)",          Tuple.Create(" dropoff",             1) },
+    };
 
-	);
-    settings.Add("splits_rock2", false, "_scores", "splits");
-    settings.SetToolTip("splits_rock2",
-		"Used on rock2, but generic enough for some other maps...\n" +
-        "rock2 style '#rock_blue_scores' triggers"
-	);
-    settings.Add("splits_ADL", false, "Cease_Fire", "splits");
-    settings.SetToolTip("splits_ADL",
-		"Generic, used on some ADL maps...\n" +
-        "May only occur 10 seconds after final capture, adjust time if needed"
-	);
+    // Populate Split settings.
+    settings.Add("splits", true, "Split when completing a map:");
+    foreach (KeyValuePair<string, Tuple<string, int>> split in vars.Splits)
+        settings.Add("split-" + split.Key + "-" + split.Value.Item2, true, split.Key, "splits");
 
-    settings.Add("resets", true, "Reset when...");
-    settings.Add("resets_disconnect", false, "disconnected", "resets");
-    settings.SetToolTip("resets_disconnect",
-		"Resets when map is changed (leave unchecked for All Maps runs).\n" +
-        "Enabling this may save you a keypress during Individual Level runs."
-	);
-    
-
+    // Populate Reset settings.
+    settings.Add("resets", false, "Reset when");
+        settings.Add("reset-disconnect", false, "disconnecting", "resets");
+        settings.Add("reset-quit", false, "quitting", "resets");
 }
 
 init
 {
-    // Current map and objective trigger
-    vars.CurrentMap = "";
-    vars.CurrentObjective = "";
+    // Event that includes the map name.
+    vars.MapLoadEvent = " Started map ";
     
-    // Number of objectives needed
-    vars.ObjectivesTotal = 1;
-    vars.ObjectivesCompleted = 0;
+    // Event that starts the timer. Available options are...
+    // "connected, address" - first event after map loads (before bxt).
+    // "entered the game" - appears to be what bxt uses, but we can't see it...
+    // "joined team \"SPECTATOR\"" - next event we can see (after bxt).
+    vars.ReadyEvent = "connected, address";
     
-    // Cache for last event
-    vars.LastEvent = "";
-
-    // Trigger string for 'start'
-    // "Started map" - last event before map loads, may inflate times on slow machines?
-    // "connected, address" - first event after map loads TODO: compare to bxt
-    vars.Starter = "Started map";
-    // vars.StartStrings = new [] {"Started map", "connected, address", "joined team \"SPECTATOR\"" };
-
-    // Trigger string for 'split'
-    // This is set per-map in 'update'
-    vars.Splitter = "dropoff";
-    // vars.SplitStrings = new [] {"Team 1 dropoff", "Blue Cap", "Blue_Cap", "BlueCap", "Capture Point"};
-    
-    // Trigger string for 'reset'
-    // Disabled by default (see settings)
-    vars.Stopper = "disconnected";
-    // vars.StopStrings = new [] {"disconnected", "Log file closed"};
-
+    // Event that indicates map has ended.
+    vars.ResetEvent = "disconnected";
 }
 
 update
 {
-    // Debugging
-    // if (current.LogLine != old.LogLine)
-    // {
-    //     print("DEBUG: Last event line was: " + old.LogLine);
-    //     print("DEBUG: Current event line is: " + current.LogLine);
-    // }
+    // Don't do anything without a new, valid log line.
+    if (old.LogLine == current.LogLine || current.LogLine == null)
+        return false;
 
-    // Avoid reading the same event twice
-    if (current.LogLine != old.LogLine)
+    // Grab the map name when we see it, and reset the objectives counter.
+    if (current.LogLine.Contains(vars.MapLoadEvent))
     {
-        // Do things based on the current event
+        vars.CompletedObjectives = 0;
+        vars.Map = current.LogLine.Split('"')[1];
         
-        // Identify map
-        if (current.LogLine.Contains("Started map"))
+        // Set the objective (default value if map is unknown).
+        if (!vars.Splits.ContainsKey(vars.Map))
         {
-            // Reset available objectives
-            vars.ObjectivesTotal = 1;
-
-            // Capture the map name
-            vars.CurrentMap = current.LogLine.Split('"')[1];
-            
-            // Map-specific configurations
-            switch ((string)vars.CurrentMap)
-            {
-                case "2fort":
-                case "badlands":
-                case "casbah":
-                case "crossover2":
-                case "well":
-                    vars.CurrentObjective = " dropoff";
-                    break;
-                case "avanti":
-                    vars.CurrentObjective = "Capture Point 3";
-                    vars.ObjectivesTotal = 2; // Caps 3 and 4 are both called '3'
-                    break;
-                case "dustbowl":
-                    vars.CurrentObjective = "Capture Point 3";
-                    break;
-                case "cz2":
-                    vars.CurrentObjective = "#cz_bcap"; // Red team's goals would be '#cz_rcap'
-                    vars.ObjectivesTotal = 5; // 5 command points
-                    break;
-                case "epicenter":
-                    vars.CurrentObjective = "spawn resupply";
-                    vars.ObjectivesTotal = 2; // Triggers on spawn
-                    break;
-                case "flagrun":
-                    vars.CurrentObjective = " endgame check ";
-                    vars.ObjectivesTotal = 3; // 3 flags
-                    break;
-                case "hunted":
-                    vars.CurrentObjective = "The Hunted's Notepad";
-                    vars.ObjectivesTotal = 2; // Triggers on spawn
-                    break;
-                case "push":
-                    vars.CurrentObjective = "ammo_giver";
-                    vars.ObjectivesTotal = 2; // Triggers on spawn
-                    break;
-                case "ravelin":
-                    vars.CurrentObjective = " captured the ";
-                    break;
-                case "rock2":
-                    vars.CurrentObjective = "_scores";
-                    break;
-                case "warpath":
-                    vars.CurrentObjective = "#inital_spawn_equip"; // typo is theirs, not mine
-                    vars.ObjectivesTotal = 2; // Triggers on spawn
-                    break;              
-                default:
-                    print("DEBUG: Unsupported map! Tell Nomad to add " + vars.CurrentMap);
-                    break;
-            }
-
-            // Use the identified objective as the splitter string
-            vars.Splitter = vars.CurrentObjective;
-            
-            // Reset completed objectives
-            vars.ObjectivesCompleted = 0;
-        }   
+            print("WARNING: Map is not supported! Autosplits may not work correctly.\n" +
+            "Please contact Nomad#6589 to add support for " + vars.Map);
+            vars.Map = "(unknown)";
+        }
+        vars.Objective = vars.Splits[vars.Map].Item1;
     }
-    
-    // Don't run if current event log is null.
-    return (current.LogLine != null);
 }
 
 start
 {
-    // Debugging
-    // print("DEBUG: attempting to START, current event line is: " + current.LogLine);
-
-    // Basic check for trigger string
-    return current.LogLine.Contains(vars.Starter);
-    // "Started map" - last event before map loads, may inflate times on slow machines?
-    // "connected, address" - first event after map loads TODO: compare to bxt
-
-    // Faster method according to https://cc.davelozinski.com/c-sharp/fastest-way-to-check-if-a-string-occurs-within-a-string (2013)
-    // return (current.LogLine.Length - current.LogLine.Replace(vars.Starter, String.Empty).Length) / vars.Starter.Length > 0 ? true : false;
+    // Start the timer.
+    return current.LogLine.Contains(vars.ReadyEvent);
 }
 
 split
 {
-    // Debugging
-    // print("DEBUG: attempting to SPLIT, current event line is: " + current.LogLine);
-
-    // Basic check for single trigger string
-    // Includes objective tracker (this solves several other map-specicic problems)
-    if ((current.LogLine != old.LogLine) && current.LogLine.Contains(vars.Splitter))
+    // Check if the current map's objective event just happened.
+    if (current.LogLine.Contains(vars.Objective))
     {
-        return (++vars.ObjectivesCompleted >= vars.ObjectivesTotal);
+        // Count how many times the event has happened
+        vars.CompletedObjectives++;
+        
+        // Split if everything matches the vars.Splits table.
+        return settings["split-" + vars.Map + "-" + vars.CompletedObjectives];
     }
 }
 
 reset
 {
-    // Debugging
-    // print("DEBUG: attempting to RESET, current event line is: " + current.LogLine);
-
-    // Basic check for trigger string
-    // return current.LogLine.Contains("stop");
-    
-    // Check array of strings which all count as 'stop'
-    // string[] stopStrings = vars.StopStrings; // lambda can't handle the dynamic type returned by vars.StopStrings
-    // return stopStrings.Any(s => current.LogLine.Contains(s)); 
-    
-    // Faster method according to https://cc.davelozinski.com/c-sharp/fastest-way-to-check-if-a-string-occurs-within-a-string (2013)
-    // return (current.LogLine.Length - current.LogLine.Replace(vars.Stopper, String.Empty).Length) / vars.Stopper.Length > 0 ? true : false;
-    return ((current.LogLine.Length - current.LogLine.Replace(vars.Stopper, String.Empty).Length) / vars.Stopper.Length > 0 ? true : false) && settings["resets_disconnect"];
+    // Reset timer on map end if this setting is enabled.
+    return settings["reset-disconnect"] && current.LogLine.Contains(vars.ResetEvent);
 }
 
 exit
 {
-    // Reset timer if game closed.
-    vars.Model.Reset();
-}
-
-shutdown
-{
-
+    // Reset timer on game exit if this setting is enabled.
+    if (settings["reset-quit"])
+        vars.Model.Reset();
 }
