@@ -2,6 +2,8 @@
 
 [LiveSplit](http://livesplit.org/) [Autosplitter](https://github.com/LiveSplit/LiveSplit.AutoSplitters) for [Team Fortress Classic](https://store.steampowered.com/app/20/Team_Fortress_Classic/) [speedrunning](https://www.speedrun.com/tfc)
 
+- https://www.speedrun.com/tfc
+
 ## Features
 
 - Automatically start the timer when the map loads.
