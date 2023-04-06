@@ -1,10 +1,10 @@
-/* TFC Autosplitter v1.0 2023-04-03 by Nomad#6589
+/* TFC Autosplitter v1.0 2023-04-06 by Nomad#6589
 Created with significant help and guidance from other people.
 Refactor based almost entirely on Ero's input - thank you Ero!
 Thanks also to everyone in the Speedrun Tool Developement discord.
  */
 
-/* Notes
+/* Notes:
 My goal was to create a non-invasive (non-hook) alternative to BXT.
 BXT is great at what it does, but some players in the TFC community
 may be uncomfortable using it due to the VAC warning.
@@ -21,13 +21,15 @@ BXT with full integration (autorecording, timing info in demos, etc).
 For the average runner, I think this should be pretty darn close. :)
 
 Known issues:
-Not all maps are currently supported, but we can add more!.
+Not all maps are currently supported, but we can add more!
 Contact me on Discord to add support for a map, it's quick and easy.
 
 Most maps expect a certain number of objective completion events.
 Some maps activate completion events every time the player spawns 
 (for various reasons). Respawning without restarting the map may
 cause unexpected issues in some cases (epicenter, hunted, push, warpath).
+
+Some maps only support one team (cz2 must be run as Blue team).
  */
 
 state("hl")
@@ -84,15 +86,16 @@ startup
         { "(unknown)",          Tuple.Create(" dropoff",             1) },
     };
 
+    // Setting for automatic reset on map end.
+    settings.Add("autoreset", false, "Reset on disconnect");
+    settings.SetToolTip("autoreset", "This should NOT be enabled for All Maps runs.\n" +
+    "May be convenient when running individual levels.");
+    
     // Populate Split settings.
-    settings.Add("splits", true, "Split when completing a map:");
+    settings.Add("splits", true, "Autosplit when completing maps");
+    settings.SetToolTip("splits", "All maps should always be enabled.\nTo add a new map, contact Nomad.");
     foreach (KeyValuePair<string, Tuple<string, int>> split in vars.Splits)
         settings.Add("split-" + split.Key + "-" + split.Value.Item2, true, split.Key, "splits");
-
-    // Populate Reset settings.
-    settings.Add("resets", false, "Reset when");
-        settings.Add("reset-disconnect", false, "disconnecting", "resets");
-        settings.Add("reset-quit", false, "quitting", "resets");
 }
 
 init
@@ -104,10 +107,10 @@ init
     // "connected, address" - first event after map loads (before bxt).
     // "entered the game" - appears to be what bxt uses, but we can't see it...
     // "joined team \"SPECTATOR\"" - next event we can see (after bxt).
-    vars.ReadyEvent = "connected, address";
+    vars.ReadyEvent = " connected, address ";
     
     // Event that indicates map has ended.
-    vars.ResetEvent = "disconnected";
+    vars.ResetEvent = "\" disconnected";
 }
 
 update
@@ -116,9 +119,10 @@ update
     if (old.LogLine == current.LogLine || current.LogLine == null)
         return false;
 
-    // Grab the map name when we see it, and reset the objectives counter.
+    // Unpause Game Time, grab the map name when we see it, and reset the objectives counter.
     if (current.LogLine.Contains(vars.MapLoadEvent))
     {
+        vars.Loading = false;
         vars.CompletedObjectives = 0;
         vars.Map = current.LogLine.Split('"')[1];
         
@@ -152,15 +156,17 @@ split
     }
 }
 
+isLoading
+{
+    // Pause timer between maps
+    if (!vars.Loading && current.LogLine.Contains(vars.ResetEvent))
+        vars.Loading = true;
+
+    return vars.Loading;
+}
+
 reset
 {
     // Reset timer on map end if this setting is enabled.
-    return settings["reset-disconnect"] && current.LogLine.Contains(vars.ResetEvent);
-}
-
-exit
-{
-    // Reset timer on game exit if this setting is enabled.
-    if (settings["reset-quit"])
-        vars.Model.Reset();
+    return settings["autoreset"] && current.LogLine.Contains(vars.ResetEvent);
 }
