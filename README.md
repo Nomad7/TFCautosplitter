@@ -8,12 +8,14 @@
 
 - Automatically start the timer when the map loads.
 - Automatically split when the map objective is completed.
-- (Optional) automatically reset the timer on map restart (for individual levels).
+- Automatically pause the timer while loading. 
+  - To enable this feature: Right click -> Compare Against -> Game Time (or Right click -> Edit Layout -> Layout Settings -> Timer tab -> Timing Method: Game Time)
+- (Optional) automatically reset the timer on map restart (for individual levels, disable this for All Maps runs).
 
 ## Installation 
 
 - Go to "Edit Splits.." in LiveSplit
-- Enter the name of the game in "Game Name"
+- Enter the name of the game (Team Fortress Classic) in "Game Name"
   - This must be entered correctly for LiveSplit to know which script to load
 - Click the "Activate" button to download and enable the autosplitter script
   - If you ever want to stop using the autosplitter altogether, just click "Deactivate"
@@ -53,13 +55,15 @@ For the average runner, I think this should be pretty darn close. :)
 
 - If you encounter any issues at all, please let me know.
 
-Not all maps are currently supported, but we can add more!.
+Not all maps are currently supported, but we can add more!
 Contact me on Discord to add support for a map, it's quick and easy.
 
 Most maps expect a certain number of objective completion events.
 Some maps activate completion events every time the player spawns 
 (for various reasons). Respawning without restarting the map may
 cause unexpected issues in some cases (epicenter, hunted, push, warpath).
+
+Some maps only support one team (cz2 must be run as Blue team).
 
 ## Thanks
 
