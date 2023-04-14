@@ -10,7 +10,8 @@
 - Automatically split when the map objective is completed.
 - Automatically pause the timer while loading. 
   - To enable this feature: Right click -> Compare Against -> Game Time (or Right click -> Edit Layout -> Layout Settings -> Timer tab -> Timing Method: Game Time)
-- (Optional) automatically reset the timer on map restart (for individual levels, disable this for All Maps runs).
+- (Optional) Subsplit on events like flag pickup (off by default, intended for use with subsplit-included splits lists).
+- (Optional) automatically reset the timer on map restart (off by default, intended for individual levels, disable this for All Maps runs).
 
 ## Installation 
 
@@ -18,21 +19,25 @@
 - Enter the name of the game (Team Fortress Classic) in "Game Name"
   - This must be entered correctly for LiveSplit to know which script to load
 - Click the "Activate" button to download and enable the autosplitter script
+  - If successful, the Settings button should be available
   - If you ever want to stop using the autosplitter altogether, just click "Deactivate"
 
-## Manual Installation (skip if you used the 'Activate' Button)
+## Manual Installation (skip this if you used the 'Activate' Button)
 
 - Download https://raw.githubusercontent.com/Nomad7/TFCautosplitter/main/LiveSplit.TFC.asl
 - Go to "Edit Layout..." in LiveSplit
 - Click the '+' button to Add a Control: Scriptable Componment
 - In the 'Script Path' field Browse to the "LiveSplit.TFC.asl" file you downloaded
+  - If successful, the Settings should be visible
   
 ## Set-up (if auto-installed)
 
 - Go to "Edit Splits..." in LiveSplit
 - Click "Settings" to configure the autosplitter if desired
-- Start, Split, and all maps should always all be selected
-- If desired, you may enable/disable automatic resets
+  - If desired, you may enable/disable automatic resets
+  - If desired, you may enable/disable subsplits
+  - Autosplit on map completion should **always be enabled for all maps.**
+  - Use `Reset to Default` to return to normal (no autoresets, no subsplits)
   
 ## Notes
 
