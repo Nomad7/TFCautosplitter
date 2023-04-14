@@ -49,52 +49,61 @@ startup
 
     // Table to track map names, triggers, and objective count.
     // (the count address various map-specific quirks)
-    vars.Splits = new Dictionary<string, Tuple<string, int>>
+    vars.Splits = new Dictionary<string, Tuple<string, int, string>>
     {
-        { "2fort",              Tuple.Create(" dropoff",             1) }, // (Valve)
-        { "badlands",           Tuple.Create(" dropoff",             1) }, // (Valve)
-        { "casbah",             Tuple.Create(" dropoff",             1) }, // (Valve)
-        { "crossover2",         Tuple.Create(" dropoff",             1) }, // (Valve)
-        { "well",               Tuple.Create(" dropoff",             1) }, // (Valve)
-        { "alchimy_l2",         Tuple.Create(" dropoff",             1) },
-        { "fry_baked_lg",       Tuple.Create(" dropoff",             1) },
-        { "mortality_l",        Tuple.Create(" dropoff",             1) },
-        { "openfire_lowgrens",  Tuple.Create(" dropoff",             1) },
-        { "phantom",            Tuple.Create(" dropoff",             1) },
-        { "pitfall",            Tuple.Create(" dropoff",             1) },
-        { "schtop",             Tuple.Create(" dropoff",             1) },
-        { "shutdown2_lg",       Tuple.Create(" dropoff",             1) },
-        { "siege",              Tuple.Create(" dropoff",             1) },
-        { "ss_nyx_ectfc",       Tuple.Create(" dropoff",             1) },
-        { "stowaway2_lg",       Tuple.Create(" dropoff",             1) },
-        { "avanti",             Tuple.Create("Capture Point 3",      2) }, // (Valve)
-        { "dustbowl",           Tuple.Create("Capture Point 3",      1) }, // (Valve)
-        { "cz2",                Tuple.Create("#cz_bcap",             5) }, // (Valve)
-        { "epicenter",          Tuple.Create("spawn resupply",       2) }, // (Valve)
-        { "flagrun",            Tuple.Create(" endgame check ",      3) }, // (Valve)
-        { "hunted",             Tuple.Create("The Hunted's Notepad", 2) }, // (Valve)
-        { "push",               Tuple.Create("ammo_giver",           2) }, // (Valve)
-        { "ravelin",            Tuple.Create(" captured the ",       1) }, // (Valve)
-        { "rock2",              Tuple.Create("_scores",              1) }, // (Valve)
-        { "warpath",            Tuple.Create("#inital_spawn_equip",  2) }, // (Valve)
-        { "2kfort5",            Tuple.Create("Capture Point",        1) },
-        { "destroy_l",          Tuple.Create("Capture Point",        1) },
-        { "monkey_lg",          Tuple.Create("Cap Point",            1) },
-        { "raiden7",            Tuple.Create("Capture Point",        1) },
-        { "siden",              Tuple.Create("Capture Point",        1) },
-        { "stormz2",            Tuple.Create("Capture Point",        1) },
-        { "(unknown)",          Tuple.Create(" dropoff",             1) },
+        { "2fort",              Tuple.Create(" dropoff",             1, " Flag\""                 ) }, // (Valve)
+        { "badlands",           Tuple.Create(" dropoff",             1, " Flag\""                 ) }, // (Valve)
+        { "casbah",             Tuple.Create(" dropoff",             1, " Flag\""                 ) }, // (Valve)
+        { "crossover2",         Tuple.Create(" dropoff",             1, " Flag\""                 ) }, // (Valve)
+        { "well",               Tuple.Create(" dropoff",             1, " flag\""                 ) }, // (Valve)
+        { "alchimy_l2",         Tuple.Create(" dropoff",             1, " Flag\""                 ) },
+        { "fry_baked_lg",       Tuple.Create(" dropoff",             1, " Flag\""                 ) },
+        { "mortality_l",        Tuple.Create(" dropoff",             1, " Flag\""                 ) },
+        { "openfire_lowgrens",  Tuple.Create(" dropoff",             1, " Flag\""                 ) },
+        { "phantom",            Tuple.Create(" dropoff",             1, " Flag\""                 ) },
+        { "pitfall",            Tuple.Create(" dropoff",             1, " Flag\""                 ) },
+        { "schtop",             Tuple.Create(" dropoff",             1, " Flag\""                 ) },
+        { "shutdown2_lg",       Tuple.Create(" dropoff",             1, " Flag\""                 ) },
+        { "siege",              Tuple.Create(" dropoff",             1, " Flag\""                 ) },
+        { "ss_nyx_ectfc",       Tuple.Create(" dropoff",             1, " Flag\""                 ) },
+        { "stowaway2_lg",       Tuple.Create(" dropoff",             1, " Flag\""                 ) },
+        { "avanti",             Tuple.Create("Capture Point 3",      2, "\"Flag "                 ) }, // (Valve)
+        { "dustbowl",           Tuple.Create("Capture Point 3",      1, "#dustbowl_blue_secures_" ) }, // (Valve)
+        { "cz2",                Tuple.Create("#cz_bcap",             5, " flag "                  ) }, // (Valve)
+        { "epicenter",          Tuple.Create("spawn resupply",       2, " Flag\""                 ) }, // (Valve)
+        { "flagrun",            Tuple.Create(" endgame check ",      3, "flag "                   ) }, // (Valve)
+        { "hunted",             Tuple.Create("The Hunted's Notepad", 2, "(N/A, no split trigger)" ) }, // (Valve)
+        { "push",               Tuple.Create("ammo_giver",           2, "\"flag\""                ) }, // (Valve)
+        { "ravelin",            Tuple.Create(" captured the ",       1, " Flag\""                 ) }, // (Valve)
+        { "rock2",              Tuple.Create("_scores",              1, "\"goalitem\""            ) }, // (Valve)
+        { "warpath",            Tuple.Create("#inital_spawn_equip",  2, " cap, move "             ) }, // (Valve)
+        { "2kfort5",            Tuple.Create("Capture Point",        1, " Flag\""                 ) },
+        { "destroy_l",          Tuple.Create("Capture Point",        1, " Flag\""                 ) },
+        { "monkey_l",           Tuple.Create("Cap Point",            1, " Flag\""                 ) },
+        { "monkey_lg",          Tuple.Create("Cap Point",            1, " Flag\""                 ) },
+        { "raiden7",            Tuple.Create("Capture Point",        1, " Flag"                   ) },
+        { "siden",              Tuple.Create("Capture Point",        1, " Flag"                   ) },
+        { "stormz2",            Tuple.Create("Capture Point",        1, " Flag\""                 ) },
+        { "(unknown)",          Tuple.Create(" dropoff",             1, " Flag"                   ) },
     };
 
-    // Setting for automatic reset on map end.
+    // Reset automatically when the map ends? Off by default (breaks All Maps runs).
     settings.Add("autoreset", false, "Reset on disconnect");
     settings.SetToolTip("autoreset", "This should NOT be enabled for All Maps runs.\n" +
     "May be convenient when running individual levels.");
+
+    // Split on things like flag pickups? Off by default.
+    settings.Add("subsplits", false, "Subsplit on objective pickup");
+    settings.SetToolTip("subsplits", "Subsplits must be added to Splits list for this to work.");
+    // Populate subsplit settings.
+    foreach (KeyValuePair<string, Tuple<string, int, string>> split in vars.Splits)
+        settings.Add("split-" + split.Key + "-" + split.Value.Item3, false, split.Key, "subsplits");
     
-    // Populate Split settings.
+    // Split on map objectives? On by default (required for autosplitter to work).
     settings.Add("splits", true, "Autosplit when completing maps");
     settings.SetToolTip("splits", "All maps should always be enabled.\nTo add a new map, contact Nomad.");
-    foreach (KeyValuePair<string, Tuple<string, int>> split in vars.Splits)
+    // Populate Splits settings.
+    foreach (KeyValuePair<string, Tuple<string, int, string>> split in vars.Splits)
         settings.Add("split-" + split.Key + "-" + split.Value.Item2, true, split.Key, "splits");
 }
 
@@ -134,7 +143,13 @@ update
             vars.Map = "(unknown)";
         }
         vars.Objective = vars.Splits[vars.Map].Item1;
+
+        // Set the subsplit event
+        vars.Subsplit = vars.Splits[vars.Map].Item3;
     }
+
+    // Debugging
+    print("DEBUG: current.LogLine = " + current.LogLine);
 }
 
 start
@@ -154,6 +169,10 @@ split
         // Split if everything matches the vars.Splits table.
         return settings["split-" + vars.Map + "-" + vars.CompletedObjectives];
     }
+
+    // Check for subsplit activation
+    if (settings["subsplits"] && current.LogLine.Contains(vars.Subsplit))
+        return true;
 }
 
 isLoading
